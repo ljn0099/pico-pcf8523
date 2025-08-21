@@ -9,8 +9,5 @@ project(pico_pcf8523 C CXX ASM)
 
 pico_sdk_init()
 
-set(CMAKE_C_FLAGS_DEBUG "-g3")
-set(CMAKE_CXX_FLAGS_DEBUG "-g3")
-
 add_subdirectory("src")
 add_subdirectory("examples")
