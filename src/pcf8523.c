@@ -730,6 +730,48 @@ bool pcf8523_read_clk_out_mode(pcf8523_t *pcf8523, pcf8523_ClkSourceFreq_t *clkO
     return true;
 }
 
+uint64_t pcf8523_datetime_to_epoch(const pcf8523_Datetime_t *dt, uint16_t century) {
+    // Extract year, month, day, and hour from the datetime struct
+    uint16_t year = dt->year + century; // Convert year offset
+    uint8_t month = dt->month;
+    uint8_t day = dt->day;
+    uint8_t hour = dt->hour;
+
+    // Adjust hour if using AM/PM format
+    if (dt->hourMode == PCF8523_HOUR_MODE_PM && hour < 12)
+        hour += 12; // Convert PM hour to 24-hour format
+    else if (dt->hourMode == PCF8523_HOUR_MODE_AM && hour == 12)
+        hour = 0; // 12 AM should be 0 hours
+
+    // Calculate total days from 1970-01-01 to the start of the current year
+    uint64_t y = year - 1;
+    uint64_t days = (y - 1969ULL) * 365ULL      // Days in full years
+                    + ((y - 1968ULL) / 4ULL)    // Add leap days every 4 years
+                    - ((y - 1900ULL) / 100ULL)  // Subtract century years not leap
+                    + ((y - 1600ULL) / 400ULL); // Add leap years every 400 years
+
+    // Add days passed before the current month in the current year
+    // Using precomputed cumulative days per month (non-leap year)
+    static const uint16_t monthDaysAccum[12] = {0,   31,  59,  90,  120, 151,
+                                                181, 212, 243, 273, 304, 334};
+    days += monthDaysAccum[month - 1];
+
+    // Add 1 more day if current year is leap and after February
+    if (month > 2 && ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)))
+        days++;
+
+    // Add days of the current month (subtract 1 because current day not finished)
+    days += (day - 1);
+
+    // Convert total days and time to seconds
+    uint64_t seconds = days * 86400ULL             // Days -> seconds
+                       + (uint64_t)hour * 3600ULL  // Hours -> seconds
+                       + (uint64_t)dt->min * 60ULL // Minutes -> seconds
+                       + dt->sec;                  // Add remaining seconds
+
+    return seconds; // Return epoch timestamp (seconds since 1970-01-01 00:00:00 UTC)
+}
+
 static inline uint8_t pcf8523_decimal_to_bcd(uint8_t decimal) {
     return decimal + 6 * (decimal / 10);
 }
