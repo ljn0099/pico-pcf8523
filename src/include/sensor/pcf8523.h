@@ -182,6 +182,8 @@ bool pcf8523_read_datetime(pcf8523_t *pcf8523, pcf8523_Datetime_t *datetime);
 
 uint64_t pcf8523_datetime_to_epoch(const pcf8523_Datetime_t *dt, uint16_t century);
 
+pcf8523_Datetime_t epoch_to_pcf8523_datetime(uint64_t epoch);
+
 bool pcf8523_read_datetime_field(pcf8523_t *pcf8523, pcf8523_DatetimeReg_t reg, uint8_t *value,
                                  pcf8523_HourMode_t *hourMode);
 

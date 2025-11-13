@@ -772,6 +772,58 @@ uint64_t pcf8523_datetime_to_epoch(const pcf8523_Datetime_t *dt, uint16_t centur
     return seconds; // Return epoch timestamp (seconds since 1970-01-01 00:00:00 UTC)
 }
 
+pcf8523_Datetime_t epoch_to_pcf8523_datetime(uint64_t epoch) {
+    const uint64_t SECONDS_PER_DAY = 86400ULL;
+    const uint64_t SECONDS_PER_HOUR = 3600ULL;
+    const uint64_t SECONDS_PER_MINUTE = 60ULL;
+
+    pcf8523_Datetime_t dt;
+
+    // Get days and seconds of the day
+    uint64_t days = epoch / SECONDS_PER_DAY;
+    uint64_t rem_secs = epoch % SECONDS_PER_DAY;
+
+    dt.hour = rem_secs / SECONDS_PER_HOUR;
+    rem_secs %= SECONDS_PER_HOUR;
+    dt.min = rem_secs / SECONDS_PER_MINUTE;
+    dt.sec = rem_secs % SECONDS_PER_MINUTE;
+    dt.hourMode = PCF8523_HOUR_MODE_24H;
+
+    // Approximate year
+    uint16_t year = 1970 + days / 365;
+
+    // Adjust days from the start of the approximated year
+    uint64_t leap_days = (year - 1969) / 4 - (year - 1901) / 100 + (year - 1601) / 400;
+    int64_t day_of_year = (int64_t)days - ((year - 1970) * 365 + leap_days);
+
+    while (day_of_year < 0) {
+        year--;
+        leap_days = (year - 1969) / 4 - (year - 1901) / 100 + (year - 1601) / 400;
+        day_of_year = (int64_t)days - ((year - 1970) * 365 + leap_days);
+    }
+
+    bool isLeap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+
+    // Correctly calculate month and day
+    static const uint8_t monthDays[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
+    uint8_t month = 0;
+    while (month < 12) {
+        uint8_t dim = monthDays[month];
+        if (month == 1 && isLeap) dim++; // leap year February
+        if (day_of_year < dim) break;
+        day_of_year -= dim;
+        month++;
+    }
+    dt.month = month + 1;
+    dt.day = day_of_year + 1;
+    dt.year = year % 100;
+
+    // Calculate day of the week (1970-01-01 = Thursday = 4)
+    dt.weekDay = (4 + days) % 7;
+
+    return dt;
+}
+
 static inline uint8_t pcf8523_decimal_to_bcd(uint8_t decimal) {
     return decimal + 6 * (decimal / 10);
 }
