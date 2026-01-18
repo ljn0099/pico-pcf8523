@@ -779,49 +779,66 @@ pcf8523_Datetime_t epoch_to_pcf8523_datetime(uint64_t epoch) {
     const uint64_t SECONDS_PER_HOUR = 3600ULL;
     const uint64_t SECONDS_PER_MINUTE = 60ULL;
 
-    pcf8523_Datetime_t dt;
+    pcf8523_Datetime_t dt = {0};
 
-    // Get days and seconds of the day
+    /* Days since epoch and seconds within the day */
     uint64_t days = epoch / SECONDS_PER_DAY;
     uint64_t rem_secs = epoch % SECONDS_PER_DAY;
 
-    dt.hour = rem_secs / SECONDS_PER_HOUR;
+    /* Time */
+    dt.hour = (uint8_t)(rem_secs / SECONDS_PER_HOUR);
     rem_secs %= SECONDS_PER_HOUR;
-    dt.min = rem_secs / SECONDS_PER_MINUTE;
-    dt.sec = rem_secs % SECONDS_PER_MINUTE;
+
+    dt.min = (uint8_t)(rem_secs / SECONDS_PER_MINUTE);
+    dt.sec = (uint8_t)(rem_secs % SECONDS_PER_MINUTE);
+
     dt.hourMode = PCF8523_HOUR_MODE_24H;
 
-    // Approximate year
-    uint16_t year = 1970 + days / 365;
+    /* Initial year approximation */
+    uint32_t year = 1970U + (uint32_t)(days / 365ULL);
 
-    // Adjust days from the start of the approximated year
-    uint64_t leap_days = (year - 1969) / 4 - (year - 1901) / 100 + (year - 1601) / 400;
-    int64_t day_of_year = (int64_t)days - ((year - 1970) * 365 + leap_days);
+    /* Leap days until the start of the current year */
+    int64_t leap_days = (int64_t)((year - 1969U) / 4U) - (int64_t)((year - 1901U) / 100U) +
+                        (int64_t)((year - 1601U) / 400U);
 
+    int64_t day_of_year = (int64_t)days - ((int64_t)(year - 1970U) * 365LL + leap_days);
+
+    /* Fix year if approximation overshot */
     while (day_of_year < 0) {
         year--;
-        leap_days = (year - 1969) / 4 - (year - 1901) / 100 + (year - 1601) / 400;
-        day_of_year = (int64_t)days - ((year - 1970) * 365 + leap_days);
+
+        leap_days = (int64_t)((year - 1969U) / 4U) - (int64_t)((year - 1901U) / 100U) +
+                    (int64_t)((year - 1601U) / 400U);
+
+        day_of_year = (int64_t)days - ((int64_t)(year - 1970U) * 365LL + leap_days);
     }
 
-    bool isLeap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+    bool isLeap = ((year % 4U) == 0U && (year % 100U) != 0U) || ((year % 400U) == 0U);
 
-    // Correctly calculate month and day
-    static const uint8_t monthDays[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
-    uint8_t month = 0;
-    while (month < 12) {
+    /* Month and day */
+    static const uint8_t monthDays[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+    uint8_t month = 0U;
+    while (month < 12U) {
         uint8_t dim = monthDays[month];
-        if (month == 1 && isLeap) dim++; // leap year February
-        if (day_of_year < dim) break;
-        day_of_year -= dim;
+        if (month == 1U && isLeap) {
+            dim++;
+        }
+
+        if (day_of_year < (int64_t)dim) {
+            break;
+        }
+
+        day_of_year -= (int64_t)dim;
         month++;
     }
-    dt.month = month + 1;
-    dt.day = day_of_year + 1;
-    dt.year = year % 100;
 
-    // Calculate day of the week (1970-01-01 = Thursday = 4)
-    dt.weekDay = (4 + days) % 7;
+    dt.month = (uint8_t)(month + 1U);
+    dt.day = (uint8_t)(day_of_year + 1LL);
+    dt.year = (uint8_t)(year % 100U);
+
+    /* Day of week: 1970-01-01 = Thursday (4) */
+    dt.weekDay = (uint8_t)((4ULL + days) % 7ULL);
 
     return dt;
 }
