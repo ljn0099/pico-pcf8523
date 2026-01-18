@@ -60,7 +60,7 @@ bool pcf8523_write_block(pcf8523_t *pcf8523, uint8_t startReg, uint8_t *data, si
     buffer[0] = startReg;
     memcpy(&buffer[1], data, len);
 
-    if (i2c_write_blocking(pcf8523->i2c, pcf8523->i2cAddress, buffer, len + 1, false) != len + 1)
+    if (i2c_write_blocking(pcf8523->i2c, pcf8523->i2cAddress, buffer, len + 1, false) != (int)(len + 1))
         return false;
 
     return true;
@@ -75,7 +75,7 @@ bool pcf8523_read_block(pcf8523_t *pcf8523, uint8_t startReg, uint8_t *data, siz
     if (i2c_write_blocking(pcf8523->i2c, pcf8523->i2cAddress, &startReg, 1, true) != 1)
         return false;
 
-    if (i2c_read_blocking(pcf8523->i2c, pcf8523->i2cAddress, buffer, len, false) != len)
+    if (i2c_read_blocking(pcf8523->i2c, pcf8523->i2cAddress, buffer, len, false) != (int)(len))
         return false;
 
     memcpy(data, buffer, len);
@@ -137,7 +137,7 @@ pcf8523_HourMode_t pcf8523_extract_hour_mode(uint8_t *hourRaw, bool pcf8523Forma
     }
     else {
         if (*hourRaw & PCF8523_HOUR_PM_MASK) { // It's PM
-            *hourRaw &= ~PCF8523_HOUR_PM_MASK; // Delete the PM bit
+            *hourRaw &= (uint8_t)(~PCF8523_HOUR_PM_MASK); // Delete the PM bit
             return PCF8523_HOUR_MODE_PM;
         }
         else {
@@ -266,19 +266,19 @@ bool pcf8523_read_alarm(pcf8523_t *pcf8523, pcf8523_Alarm_t *alarm) {
 
     if (buffer[PCF8523_MIN_ALARM] & PCF8523_DISABLE_ALARM_MASK) {
         alarm->enableMinAlarm = false;
-        buffer[PCF8523_MIN_ALARM] &= ~PCF8523_DISABLE_ALARM_MASK;
+        buffer[PCF8523_MIN_ALARM] &= (uint8_t)(~PCF8523_DISABLE_ALARM_MASK);
     }
     if (buffer[PCF8523_HOUR_ALARM] & PCF8523_DISABLE_ALARM_MASK) {
         alarm->enableHourAlarm = false;
-        buffer[PCF8523_HOUR_ALARM] &= ~PCF8523_DISABLE_ALARM_MASK;
+        buffer[PCF8523_HOUR_ALARM] &= (uint8_t)(~PCF8523_DISABLE_ALARM_MASK);
     }
     if (buffer[PCF8523_DAY_ALARM] & PCF8523_DISABLE_ALARM_MASK) {
         alarm->enableDayAlarm = false;
-        buffer[PCF8523_DAY_ALARM] &= ~PCF8523_DISABLE_ALARM_MASK;
+        buffer[PCF8523_DAY_ALARM] &= (uint8_t)(~PCF8523_DISABLE_ALARM_MASK);
     }
     if (buffer[PCF8523_WEEKDAY_ALARM] & PCF8523_DISABLE_ALARM_MASK) {
         alarm->enableWeekDayAlarm = false;
-        buffer[PCF8523_WEEKDAY_ALARM] &= ~PCF8523_DISABLE_ALARM_MASK;
+        buffer[PCF8523_WEEKDAY_ALARM] &= (uint8_t)(~PCF8523_DISABLE_ALARM_MASK);
     }
 
     alarm->minAlarm = pcf8523_bcd_to_decimal(buffer[PCF8523_MIN_ALARM]);
@@ -308,13 +308,13 @@ bool pcf8523_read_alarm_field(pcf8523_t *pcf8523, pcf8523_AlarmReg_t reg, uint8_
     if (buffer & PCF8523_DISABLE_ALARM_MASK) {
         if (enabled)
             *enabled = false;
-        buffer &= ~PCF8523_DISABLE_ALARM_MASK;
+        buffer &= (uint8_t)(~PCF8523_DISABLE_ALARM_MASK);
     }
     else if (enabled) {
         *enabled = true;
     }
 
-    if (reg != PCF8523_WEEKDAY_ALARM && value)
+    if (reg != PCF8523_WEEKDAYS_ALARM_REG && value)
         *value = pcf8523_bcd_to_decimal(buffer);
 
     return true;
@@ -387,9 +387,9 @@ bool pcf8523_set_power_mode(pcf8523_t *pcf8523, pcf8523_PowerModes_t powerMode) 
         return false;
 
     // Clear Power Mode Bits
-    buffer &= ~PCF8523_CTRL3_POWER_MODE_MASK;
+    buffer &= (uint8_t)(~PCF8523_CTRL3_POWER_MODE_MASK);
     // Set Power Mode Bits
-    buffer |= powerMode;
+    buffer |= (uint8_t)(powerMode);
 
     if (!pcf8523_write_register(pcf8523, PCF8523_CTRL3_REG, buffer))
         return false;
@@ -549,7 +549,7 @@ bool pcf8523_read_offset(pcf8523_t *pcf8523, pcf8523_OffsetMode_t *mode, int8_t 
 
     if (buffer & PCF8523_OFFSET_MODE_MASK) {
         *mode = PCF8523_OFFSET_EVERY_MIN;
-        buffer &= ~PCF8523_OFFSET_MODE_MASK;
+        buffer &= (uint8_t)(~PCF8523_OFFSET_MODE_MASK);
     }
     else {
         *mode = PCF8523_OFFSET_EVERY_2_HOURS;
@@ -569,8 +569,8 @@ bool pcf8523_set_timer_a_mode(pcf8523_t *pcf8523, pcf8523_TmrAMode_t mode) {
     if (!pcf8523_read_register(pcf8523, PCF8523_TMR_CTRL_REG, &buffer))
         return false;
 
-    buffer &= ~PCF8523_TMR_CTRL_TMR_A_MODE_MASK;
-    buffer |= mode;
+    buffer &= (uint8_t)(~PCF8523_TMR_CTRL_TMR_A_MODE_MASK);
+    buffer |= (uint8_t)(mode);
 
     if (!pcf8523_write_register(pcf8523, PCF8523_TMR_CTRL_REG, buffer))
         return false;
@@ -622,6 +622,8 @@ bool pcf8523_set_timer_int_mode(pcf8523_t *pcf8523, pcf8523_Tmr_t tmr, pcf8523_T
 
     if (!pcf8523_set_bit(pcf8523, PCF8523_TMR_CTRL_REG, pinMask, intMode))
         return false;
+
+    return true;
 }
 
 bool pcf8523_read_timer_int_mode(pcf8523_t *pcf8523, pcf8523_Tmr_t tmr,
@@ -668,7 +670,7 @@ bool pcf8523_set_timer_b_duration(pcf8523_t *pcf8523, pcf8523_TimerBValue *tmrB)
     uint8_t buffer[2];
 
     buffer[0] = tmrB->intWidth;
-    buffer[0] |= tmrB->sourceFreq;
+    buffer[0] |= (uint8_t)tmrB->sourceFreq;
     buffer[1] = tmrB->value;
 
     if (!pcf8523_write_block(pcf8523, PCF8523_TMR_B_FREQ_CTRL_REG, buffer, 2))
@@ -705,8 +707,8 @@ bool pcf8523_set_clk_out_mode(pcf8523_t *pcf8523, pcf8523_ClkOutFreq_t clkOutFre
     if (!pcf8523_read_register(pcf8523, PCF8523_TMR_CTRL_REG, &buffer))
         return false;
 
-    buffer &= ~PCF8523_TMR_CTRL_CLKOUT_FREQ_MASK;
-    buffer |= clkOutFreq;
+    buffer &= (uint8_t)(~PCF8523_TMR_CTRL_CLKOUT_FREQ_MASK);
+    buffer |= (uint8_t)(clkOutFreq);
 
     if (!pcf8523_write_register(pcf8523, PCF8523_TMR_CTRL_REG, buffer))
         return false;
@@ -825,11 +827,11 @@ pcf8523_Datetime_t epoch_to_pcf8523_datetime(uint64_t epoch) {
 }
 
 static inline uint8_t pcf8523_decimal_to_bcd(uint8_t decimal) {
-    return decimal + 6 * (decimal / 10);
+    return (uint8_t)(decimal + 6 * (decimal / 10));
 }
 
 static inline uint8_t pcf8523_bcd_to_decimal(uint8_t bcd) {
-    return bcd - 6 * (bcd >> 4);
+    return (uint8_t)(bcd - 6 * (bcd >> 4));
 }
 
 bool pcf8523_validate_time_field(uint8_t reg, uint8_t value, pcf8523_HourMode_t *hourMode,
